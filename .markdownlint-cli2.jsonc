@@ -1,0 +1,22 @@
+{
+  // Disabled rules conflict with this repo's existing, pre-established
+  // style rather than catching real problems -- turning them on would
+  // fail on a large volume of already-existing content unrelated to
+  // whatever a given PR is actually changing:
+  //   MD013 line-length      -- prose isn't wrapped at 80 chars
+  //   MD025 single-H1        -- docs/TODO.md intentionally uses many
+  //                             "# TODO: ..." H1s, one per entry
+  //   MD022 blanks-around-headings
+  //   MD031 blanks-around-fences
+  //   MD032 blanks-around-lists    -- inconsistently applied in older docs
+  //   MD060 table-column-style     -- pre-existing compact-style tables
+  "config": {
+    "MD013": false,
+    "MD022": false,
+    "MD025": false,
+    "MD031": false,
+    "MD032": false,
+    "MD060": false
+  },
+  "globs": ["**/*.md"]
+}

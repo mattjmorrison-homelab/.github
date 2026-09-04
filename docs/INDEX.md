@@ -12,9 +12,13 @@ Secrets flow: OpenBao stores secrets → External Secrets Operator syncs them in
 
 ## Docs
 
+- [The homelab team](homelab-team.md) — the Claude Code agent pipeline that makes every code change in this homelab
 - [Cluster](cluster.md) — node inventory, Pi 5 agent node setup plan
 - [Networking](networking.md) — current network layout and planned architecture
 - [TODOs](todos.md) — general homelab improvements to revisit
+- [Doc and comment style](style.md) — how READMEs and comments should read
+- [GitHub access control proposal](github-access-control-proposal.md) — bot accounts/App design for the org, not yet actioned
+- [Required status checks proposal](status-checks-proposal.md) — per-repo-category CI checks, not yet actioned
 
 ## Repos
 
