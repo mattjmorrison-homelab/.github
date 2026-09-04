@@ -60,3 +60,13 @@ Found a stale `namespace` field on `k8s-apps`' `k8s-ci-rbac` entry
 RBAC setup. Wasn't actually breaking anything — the chart hardcodes its
 own object namespaces — but the field was wrong and nobody would've
 noticed. Worth a pass over how these fields get set/scoped generally.
+
+Related idea, GitHub side: there's no real grouping mechanism for repos
+on GitHub (flat namespace per org, no folders/subgroups) -- Teams,
+Topics, and paid-tier custom properties are the only tools. Would be
+nice if a k8s namespace like `monitoring` (spanning `k8s-prometheus`,
+`k8s-alertmanager`, `k8s-grafana`, `k8s-ci-rbac`'s monitoring-scoped
+consumers) had some visible equivalent on the GitHub side -- e.g. a
+`monitoring` Team those repos live under, or a shared Topic tag. Not
+scoped/decided yet, just captured as worth exploring alongside the
+namespace-scoping pass above.
