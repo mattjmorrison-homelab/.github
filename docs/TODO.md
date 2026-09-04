@@ -445,3 +445,11 @@ out of sync with each other.
 # TODO - should I create a 2nd claude subscription and sign up for a month and swap between the subscripts when one maxes out? That would probably get me by and be $40 / month instead of $100
 
 # TODO - I have a bunch of old macbooks that I can probably install nixos on and add to the cluster
+---
+# TODO: revisit ArgoCD Application namespace/destination scoping
+
+Found a stale `namespace` field on `k8s-apps`' `k8s-ci-rbac` entry
+(pointed at `garage` instead of `monitoring`) while working through CI
+RBAC setup. Wasn't actually breaking anything — the chart hardcodes its
+own object namespaces — but the field was wrong and nobody would've
+noticed. Worth a pass over how these fields get set/scoped generally.
