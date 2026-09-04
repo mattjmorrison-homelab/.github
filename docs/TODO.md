@@ -50,3 +50,13 @@ switching the verify check to a real HTTP 200 assertion instead of TCP-only.
 - [ ] While rolling this out to `homelab-cloudflare` and `homelab-woodpecker`,
       also pin their existing bootstrap Jobs' `alpine:3.20` (currently a
       mutable tag) to a digest, same as `verify.image`.
+
+---
+
+# TODO: revisit ArgoCD Application namespace/destination scoping
+
+Found a stale `namespace` field on `k8s-apps`' `k8s-ci-rbac` entry
+(pointed at `garage` instead of `monitoring`) while working through CI
+RBAC setup. Wasn't actually breaking anything — the chart hardcodes its
+own object namespaces — but the field was wrong and nobody would've
+noticed. Worth a pass over how these fields get set/scoped generally.
