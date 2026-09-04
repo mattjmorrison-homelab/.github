@@ -50,3 +50,32 @@ switching the verify check to a real HTTP 200 assertion instead of TCP-only.
 - [ ] While rolling this out to `homelab-cloudflare` and `homelab-woodpecker`,
       also pin their existing bootstrap Jobs' `alpine:3.20` (currently a
       mutable tag) to a digest, same as `verify.image`.
+
+---
+
+# TODO: convert admin-network to a Helm library chart
+
+`admin-network`'s `local-hosts.yaml`/`ingress-hosts.yaml` currently reach
+`k8s-pihole`/`k8s-coredns` via ArgoCD multi-source Applications (a second
+`source` in `k8s-apps`, referenced by `ref: network` and pulled in via
+`$network/local-hosts.yaml` in `helm.valueFiles`). Decided this should
+become a real Helm library chart dependency instead, for one reason:
+consistency. `k8s-lib-ci-rbac` already established "shared code between
+charts is a helm-lib" as the pattern for this homelab: one way to do
+cross-chart sharing, not two different mechanisms doing the same job.
+
+Known cost, not free: unlike the current approach (plain git, no
+registry), a chart dependency needs OCI publishing to
+`registry.morrisons.site` plus a private-registry pull credential for
+every consumer's own CI to run `helm dependency build` -- the same
+OpenBao/`k8s-zot` service-consumer chain that's still unresolved for
+`k8s-garage`'s `k8s-lib-ci-rbac` dependency. Worth sorting that out
+first, or accepting the same block here.
+
+- [ ] Resolve (or accept) the registry-auth blocker before converting,
+      since this would hit it too.
+- [ ] Convert `admin-network` into a values-only chart dependency,
+      consumed by `k8s-pihole`/`k8s-coredns` via `Chart.yaml`
+      `dependencies`, not ArgoCD multi-source.
+- [ ] Remove the `ref: network` / `$network/...` multi-source wiring from
+      both Applications in `k8s-apps` once converted.
