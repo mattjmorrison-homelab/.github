@@ -129,9 +129,16 @@ matching toleration to `homelab-node-exporter`'s DaemonSet. Moot now.
 
 Right now `~/dotfiles` is the top-level flake that owns everything,
 including the control-plane host's NixOS config — it pulls in homelab as a
-module. Matt wants this flipped: `~/Projects/homelab` becomes the flake
-that owns the control-plane NixOS configuration directly, and pulls in
-`~/dotfiles` as an input instead (not the other way around).
+module. Matt wants this flipped: `~/Projects/homelab` (or whatever it ends
+up renamed to) becomes the flake that owns the control-plane NixOS
+configuration directly, and pulls in a dotfiles module instead (not the
+other way around).
+
+Refined shape (2026-09-04): not just "homelab pulls in dotfiles as-is" --
+extract the actual shell/editor config (tmux, vim, etc.) into its own
+module(s), separate from anything control-plane-specific. Both `homelab`
+and `mattjmorrison/dotfiles` become consumers of that shared module,
+symmetric with each other, rather than one being nested inside the other.
 
 Why: cluster/control-plane setup doesn't really belong nested inside a
 general dotfiles repo, even as a separate module.
@@ -140,11 +147,13 @@ Not yet scoped — just captured, nothing investigated yet:
 
 - [ ] Look at the current dotfiles flake's actual inputs/outputs and how
       homelab is wired in today, before planning the flip.
-- [ ] Decide what (if anything) homelab still needs from dotfiles after
-      the inversion — e.g. shell/user-level home-manager config — versus
-      what's genuinely control-plane-only and shouldn't move.
+- [ ] Identify which parts of dotfiles are genuinely shell/editor config
+      (tmux, vim, etc. -- extractable into a shared module) versus
+      control-plane-specific and shouldn't move at all.
+- [ ] Decide where the extracted shared module(s) live -- a new repo, or
+      inside one of the two existing ones with the other pulling it in.
 - [ ] This is a structural change to how the control-plane NixOS config is
-      assembled — decide whether it goes through the orchestrator's
+      assembled -- decide whether it goes through the orchestrator's
       TDD pipeline like other `homelab` module changes, or is a one-time
       by-hand restructuring since it's flake plumbing, not a module.
 
