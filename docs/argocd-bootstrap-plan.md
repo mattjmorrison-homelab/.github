@@ -12,14 +12,14 @@ Bootstrap ArgoCD into the k3s cluster. ArgoCD becomes the single tool used to de
 
 Apply the official ArgoCD install manifest to the cluster:
 
-```
+```bash
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 ```
 
 ### 2. Wait for ArgoCD to be ready
 
-```
+```bash
 kubectl wait --for=condition=available --timeout=120s deployment/argocd-server -n argocd
 ```
 
@@ -27,7 +27,7 @@ kubectl wait --for=condition=available --timeout=120s deployment/argocd-server -
 
 Forward the ArgoCD server port locally:
 
-```
+```bash
 kubectl port-forward svc/argocd-server -n argocd 8080:443
 ```
 
@@ -35,7 +35,7 @@ Then open <https://localhost:8080> in a browser.
 
 ### 4. Get the initial admin password
 
-```
+```bash
 kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 -d
 ```
 

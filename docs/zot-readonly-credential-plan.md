@@ -130,7 +130,7 @@ property `HTPASSWD`) is a single manually-maintained blob with no
 generation tooling in this repo. Adding `ci-readonly` means manually
 regenerating that blob to contain *two* bcrypt lines instead of one:
 
-```
+```bash
 htpasswd -nB ci                >> new-htpasswd   # existing line, unchanged hash
 htpasswd -nbB ci-readonly '<new password>' >> new-htpasswd
 ```

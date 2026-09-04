@@ -445,7 +445,9 @@ out of sync with each other.
 # TODO - should I create a 2nd claude subscription and sign up for a month and swap between the subscripts when one maxes out? That would probably get me by and be $40 / month instead of $100
 
 # TODO - I have a bunch of old macbooks that I can probably install nixos on and add to the cluster
+
 ---
+
 # TODO: revisit ArgoCD Application namespace/destination scoping
 
 Found a stale `namespace` field on `k8s-apps`' `k8s-ci-rbac` entry
@@ -463,7 +465,9 @@ consumers) had some visible equivalent on the GitHub side -- e.g. a
 `monitoring` Team those repos live under, or a shared Topic tag. Not
 scoped/decided yet, just captured as worth exploring alongside the
 namespace-scoping pass above.
+
 ---
+
 # TODO: convert admin-network to a Helm library chart
 
 `admin-network`'s `local-hosts.yaml`/`ingress-hosts.yaml` currently reach
@@ -490,7 +494,9 @@ first, or accepting the same block here.
       `dependencies`, not ArgoCD multi-source.
 - [ ] Remove the `ref: network` / `$network/...` multi-source wiring from
       both Applications in `k8s-apps` once converted.
+
 ---
+
 # TODO: home CI identities in a dedicated namespace, separate from their target namespace
 
 Today `k8s-ci-rbac`'s per-consumer ServiceAccounts (`prometheus-ci`,
