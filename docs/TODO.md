@@ -490,3 +490,31 @@ first, or accepting the same block here.
       `dependencies`, not ArgoCD multi-source.
 - [ ] Remove the `ref: network` / `$network/...` multi-source wiring from
       both Applications in `k8s-apps` once converted.
+---
+# TODO: home CI identities in a dedicated namespace, separate from their target namespace
+
+Today `k8s-ci-rbac`'s per-consumer ServiceAccounts (`prometheus-ci`,
+`grafana-ci`, `alertmanager-ci`, `argocd-ci`, `garage-ci`, ...) live in
+the *same* namespace as the real app they validate (`monitoring`,
+`argocd`, `garage`, ...) -- mixed in with production service accounts.
+
+A `RoleBinding`'s subject can reference a ServiceAccount from a
+different namespace, so the identity itself could be homed in a
+dedicated namespace instead (e.g. `github-runner`, where
+`github-runner-workload` itself already lives) while the `Role`/
+`RoleBinding` granting it access stays in the target namespace (Roles
+are inherently namespace-scoped, that part can't move without
+switching to a much broader ClusterRole).
+
+Not a security change -- the granted permission scope is identical
+either way. Purely organizational: `kubectl get sa -n monitoring`
+would show only real app service accounts, not CI helpers mixed in,
+and every CI identity would be auditable/rotatable from one place.
+
+- [ ] Pick a dedicated namespace for CI identities (reuse
+      `github-runner`, or a new one).
+- [ ] Update `k8s-ci-rbac`'s template to create the ServiceAccount in
+      that namespace while keeping the Role/RoleBinding in each
+      consumer's own namespace.
+- [ ] No changes needed in consumer repos -- `service-account: <name>`
+      in each `check.yml` stays the same either way.
