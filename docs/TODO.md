@@ -36,47 +36,42 @@ making `find-check-run`'s GitHub-API lookup unnecessary.
 
 ---
 
-# TODO: new admin-discord repo to manage Discord channels/webhooks
+# TODO: repoint every consumer at admin-discord's real webhooks
 
-Every Discord webhook in use across the org today was created by hand in
-Discord's UI, with no record anywhere of which channel it posts to or why
-— this keeps causing "is this the deploys channel?" guessing whenever a
-new one gets wired up (`ui-hdmi-switch`, `graph-hdmi-switch`'s
-discord-webhook-url secrets, most recently). Move channel/webhook creation
-into Terraform instead, using `Lucky3028/terraform-provider-discord` (most
-active of the ones surveyed: 80 stars, pushed within the last week, vs.
-4-star/dormant alternatives).
+`admin-discord` is built and working: channels/webhooks are created via
+Terraform (`Lucky3028/terraform-provider-discord`), state is Garage-backed
+(so the provider's Sensitive-not-write-only webhook token never leaks into
+a public plan artifact — see the Garage-plan-storage entry above, which
+landed first for exactly this reason), and the bot token comes from
+OpenBao like every other repo's secrets.
 
-Real constraint, not a blocker: every webhook's token/URL is a plain
-computed (Sensitive-flagged, not write-only) attribute in this provider —
-same in every alternative checked — so it will be genuinely present in
-this repo's own Terraform state, same as any resource anywhere. This is
-only acceptable given the Garage-plan-storage fix above lands first (see
-above) — without it, a real webhook token would eventually leak into a
-public PR's plan artifact the first time any later PR touches this repo.
+What's left is repointing each consumer at the *new* Terraform-managed
+webhooks instead of the original hand-created-in-Discord ones — creating
+the webhook was never the same step as consumers actually using it.
 
-- [ ] Depends on the Garage-plan-storage TODO above landing first
-- [ ] Bootstrap like every new repo: add `admin-discord` to
-      `admin-github`'s `local.repos`, `tofu apply`, scaffold
-- [ ] New OpenBao role `admin-discord`, bound to `github-runner-workload`,
-      scoped to `kv/data/homelab/admin-discord/*` (holds the bot token)
-- [ ] Scaffold `admin-discord = ["discord-bot-token"]` in admin-openbao's
-      `secrets` map; manually create a bot in Discord's Developer Portal
-      and copy its token in afterward
-- [ ] `admin-discord` repo: `provider.tf` (discord + vault providers,
-      Garage-backed `s3` state backend, same shape as admin-github/
-      admin-openbao), one `discord_channel`/`discord_webhook` pair per
-      real channel needed, `.github/workflows/tofu.yml` reusing
-      `actions-tofu/fetch-credentials` (for Garage creds) and
-      `actions-openbao` (for the bot token — this is exactly the "third
-      caller" case that action was built for)
-- [ ] Inventory step: enumerate every channel/webhook actually in use
-      today (this needs the user's own Discord-side knowledge — not
-      something inferable from any repo)
-- [ ] Getting the real webhook value into each consumer's own OpenBao path
-      (e.g. `homelab/ui-hdmi-switch/discord-webhook-url`) stays a manual
-      copy step, same as today — admin-discord only takes over creating
-      the webhook itself, not writing into other repos' secret paths
+- [x] `ui-hdmi-switch`, `graph-hdmi-switch` (share the `github-actions`
+      webhook) — a `sync-discord-webhook` step in each repo's own
+      `publish.yml` pulls the real value from `admin-discord`'s Terraform
+      state (`actions-tofu/read-output`) and writes it to that repo's own
+      `discord-webhook-url` OpenBao path (`actions-openbao/write-secret`)
+      on every deploy. Verified end to end: real run succeeded, value
+      confirmed masked in every log line.
+- [ ] `k8s-argocd`, `k8s-alertmanager` — still pointed at their original
+      hand-created webhooks, not `admin-discord`'s. Was blocked on stale
+      `homelab-*`-prefixed OpenBao paths; the secrets-migration work
+      cleared that (both now have correct new-style paths with real
+      values). Same `sync-discord-webhook` mechanism as above should
+      apply directly now.
+- [ ] `pi-health`'s uptime/downtime webhooks — still genuinely blocked,
+      not just deferred: `pi-health` isn't a Kubernetes workload, so
+      there's no `ExternalSecret`/OpenBao plumbing for these two keys at
+      all yet. Needs either a deploy-time fetch step added to
+      `pi-health`'s own `deploy.sh`, or stays a manual edit to
+      `/etc/pi-health/config.env` on the Pi itself.
+- [ ] Once all of the above are repointed and confirmed working, retire
+      the original hand-created webhooks in Discord's UI manually — the
+      "create new, retire old manually" decision from when `admin-discord`
+      was built.
 
 ---
 
