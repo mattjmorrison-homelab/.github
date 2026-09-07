@@ -1,3 +1,85 @@
+# TODO: store Terraform plan artifacts in Garage instead of GitHub Actions
+
+Every Terraform repo (`admin-github`, `admin-openbao`, and any future one)
+uploads its `tfplan` file via `actions/upload-artifact` on every PR check,
+then downloads it via `actions/download-artifact` + `find-check-run` at
+apply time. These repos are public, so that artifact is downloadable by
+anyone — and a plan file's binary form embeds the real value of any
+attribute Terraform already knows from state, even `Sensitive`-flagged
+ones (that flag only redacts CLI display, not what's serialized into the
+plan). Today this is a documented constraint on what these repos' state
+can hold; swap the storage mechanism instead of just living with the
+constraint.
+
+Fix: write/read the `tfplan` file directly to/from the same Garage
+`tofu-state` bucket already used for state, under a new `plans/<repo>/
+<sha>/tfplan` prefix, using the same Garage credentials `actions-tofu/
+fetch-credentials` already fetches from OpenBao. This also lets `apply`
+construct the exact path directly from the merge event's own head SHA,
+making `find-check-run`'s GitHub-API lookup unnecessary.
+
+- [ ] New `actions-tofu/upload-plan` and `actions-tofu/download-plan`
+      composite actions (`aws s3 cp` against Garage's endpoint, using
+      AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY already exported by
+      fetch-credentials)
+- [ ] Confirm whether `aws` CLI is present on the runner image already;
+      install it if not (matching actions-helm's install-ci-tools.sh
+      pattern for missing tools)
+- [ ] Update `admin-github` and `admin-openbao`'s `tofu.yml`: replace
+      upload-artifact/download-artifact/find-check-run with upload-plan/
+      download-plan
+- [ ] Confirm nothing else calls `find-check-run` before considering it
+      for removal
+- [ ] No retention/lifecycle policy on the new Garage prefix initially —
+      accept indefinite accumulation (cheap, self-hosted, low volume);
+      revisit only if it actually becomes a problem
+
+---
+
+# TODO: new admin-discord repo to manage Discord channels/webhooks
+
+Every Discord webhook in use across the org today was created by hand in
+Discord's UI, with no record anywhere of which channel it posts to or why
+— this keeps causing "is this the deploys channel?" guessing whenever a
+new one gets wired up (`ui-hdmi-switch`, `graph-hdmi-switch`'s
+discord-webhook-url secrets, most recently). Move channel/webhook creation
+into Terraform instead, using `Lucky3028/terraform-provider-discord` (most
+active of the ones surveyed: 80 stars, pushed within the last week, vs.
+4-star/dormant alternatives).
+
+Real constraint, not a blocker: every webhook's token/URL is a plain
+computed (Sensitive-flagged, not write-only) attribute in this provider —
+same in every alternative checked — so it will be genuinely present in
+this repo's own Terraform state, same as any resource anywhere. This is
+only acceptable given the Garage-plan-storage fix above lands first (see
+above) — without it, a real webhook token would eventually leak into a
+public PR's plan artifact the first time any later PR touches this repo.
+
+- [ ] Depends on the Garage-plan-storage TODO above landing first
+- [ ] Bootstrap like every new repo: add `admin-discord` to
+      `admin-github`'s `local.repos`, `tofu apply`, scaffold
+- [ ] New OpenBao role `admin-discord`, bound to `github-runner-workload`,
+      scoped to `kv/data/homelab/admin-discord/*` (holds the bot token)
+- [ ] Scaffold `admin-discord = ["discord-bot-token"]` in admin-openbao's
+      `secrets` map; manually create a bot in Discord's Developer Portal
+      and copy its token in afterward
+- [ ] `admin-discord` repo: `provider.tf` (discord + vault providers,
+      Garage-backed `s3` state backend, same shape as admin-github/
+      admin-openbao), one `discord_channel`/`discord_webhook` pair per
+      real channel needed, `.github/workflows/tofu.yml` reusing
+      `actions-tofu/fetch-credentials` (for Garage creds) and
+      `actions-openbao` (for the bot token — this is exactly the "third
+      caller" case that action was built for)
+- [ ] Inventory step: enumerate every channel/webhook actually in use
+      today (this needs the user's own Discord-side knowledge — not
+      something inferable from any repo)
+- [ ] Getting the real webhook value into each consumer's own OpenBao path
+      (e.g. `homelab/ui-hdmi-switch/discord-webhook-url`) stays a manual
+      copy step, same as today — admin-discord only takes over creating
+      the webhook itself, not writing into other repos' secret paths
+
+---
+
 # TODO: renaming repos
 
 Full plan and rename mapping live in [naming.md](naming.md) — not
