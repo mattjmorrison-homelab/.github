@@ -146,9 +146,11 @@ Traefik has a built-in `/ping` endpoint (returns 200 when healthy) if enabled
 in its static config — worth checking whether it's turned on here, and if so
 switching the verify check to a real HTTP 200 assertion instead of TCP-only.
 
-- [ ] While rolling this out to `homelab-cloudflare` and `homelab-woodpecker`,
-      also pin their existing bootstrap Jobs' `alpine:3.20` (currently a
-      mutable tag) to a digest, same as `verify.image`.
+- [ ] While rolling this out to `homelab-cloudflare`, also pin its
+      existing bootstrap Job's `alpine:3.20` (currently a mutable tag)
+      to a digest, same as `verify.image`. (`homelab-woodpecker`'s own
+      bootstrap Job no longer exists — that repo was decommissioned
+      outright, not migrated; see the migration checklist.)
 
 ---
 
@@ -271,16 +273,20 @@ the meta/org-wide doc repo.
 Prompted by the `graph-hdmi-switch` arm64 saga: getting one service onto a
 Pi node currently means hard-coding the same `nodeSelector`/toleration
 pair in *two* unrelated places — the deploy-side `k8s-hdmi-switch`
-Deployment, and separately in `graph-hdmi-switch`'s `.woodpecker.yml` (on
-every step that touches the arm64 image, plus the clone step, since all
-steps in a pipeline share one node-pinned workspace volume). Nothing
-connects the two; each has to be kept in sync by hand.
+Deployment, and separately in `graph-hdmi-switch`'s own
+`.github/workflows/publish.yml`/`check.yml` (every `actions-k8s` step
+that touches the arm64 image sets `node-selector`/`tolerations`
+inline, since each step's own Job needs the same pinning). Nothing
+connects the two; each has to be kept in sync by hand. (Originally
+written when this repo's CI was still Woodpecker-based — same
+duplication, just a different file, after the migration to GitHub
+Actions.)
 
 - [ ] Look for a way to define "this service belongs on the Pi" once and
-      have both the CI (Woodpecker build arch) and the deploy
-      (Kubernetes nodeSelector/toleration) pick it up from a single
-      source, rather than duplicating the same taint/arch info in both
-      `.woodpecker.yml` and the manifests repo.
+      have both the CI (`actions-k8s`'s `node-selector`/`tolerations`
+      inputs) and the deploy (Kubernetes nodeSelector/toleration) pick
+      it up from a single source, rather than duplicating the same
+      taint/arch info in both the CI workflow and the manifests repo.
 
 ---
 
