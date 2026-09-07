@@ -134,13 +134,36 @@ entry below lists only the steps that actually apply to it.
 - [ ] No secrets of OpenBao's own to migrate — this app manages
       everyone else's, has none itself in `locals.secrets`.
 
-### 2. `homelab-woodpecker` → `k8s-woodpecker`
+### 2. `homelab-woodpecker` — decommissioned outright, not renamed
 
-- [ ] Rename
-- [ ] Secrets: `github-client`, `github-secret`, `agent-secret`,
-      `vault-token`, `prometheus-auth-token`, `zot-ci-password` — old
-      path `kv/homelab/woodpecker`, new `kv/homelab/k8s-woodpecker/*`
-- [ ] No CI migration — Woodpecker is the thing being retired, not a
+Every repo that used Woodpecker (`graph-router`, `ui-hdmi-switch`,
+`graph-hdmi-switch`, `admin-github`, `admin-openbao`) migrated onto
+GitHub Actions instead, so there was no `k8s-woodpecker` to rename to —
+the whole service came out.
+
+- [x] Live deployment removed: `homelab-woodpecker` Application entry
+      dropped from `k8s-apps` (`k8s-apps#6`); namespace/Deployment/
+      Service manually deleted afterward (Application removal doesn't
+      cascade-delete its resources — same gotcha as the `homelab-zot`
+      rename above, found the hard way again here)
+- [x] Dangling references cleaned up: Prometheus scrape target + token
+      secret (`k8s-prometheus#3`), Grafana dashboard (`k8s-grafana#3`),
+      Homepage bookmark (`k8s-homepage#2`), `woodpecker.morrisons.site`
+      ingress host (`admin-network#2`)
+- [x] `admin-openbao` roles removed: `woodpecker`, `woodpecker-bootstrap`
+      (`admin-openbao#21`)
+- [ ] `admin-openbao` secrets: `homelab-woodpecker`'s six keys
+      (`github-client`, `github-secret`, `agent-secret`, `vault-token`,
+      `prometheus-auth-token`, `zot-ci-password`) and
+      `homelab-prometheus`'s `woodpecker-prometheus-auth-token` still
+      have scaffolded `vault_kv_secret_v2` entries in `locals.tf` —
+      `prevent_destroy = true` blocks removing them until the real
+      values are deleted in OpenBao first (manual, out-of-band)
+- [x] Repo archived: branch protection dropped first
+      (`admin-github#26`), then `archived = true` set
+      (`admin-github#27`) — two separate applies, since GitHub rejects
+      branch-protection changes on an already-archived repo
+- [x] No CI migration — Woodpecker was the thing being retired, not a
       consumer of it
 
 ### 3. `admin-github` (already correctly named)
