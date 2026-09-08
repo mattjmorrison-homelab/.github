@@ -511,12 +511,22 @@ should all be driven from one place/process, so adding a new publisher
 doesn't mean hand-editing three separate systems that can silently drift
 out of sync with each other.
 
-- [ ] Not started — needs: a design for what "one place" actually is
-      (likely OpenTofu, same direction as the `admin-openbao` IaC-for-
-      policies TODO above, extended to cover Zot's own access-control
-      config too, not just OpenBao's), and an audit of every repo
-      currently publishing to `registry.morrisons.site` under the shared
-      `ci` user before picking an order to migrate them in.
+- [x] The "one place" mechanism is built: `k8s-zot/manifests/values.yaml`'s
+      `serviceConsumers` list drives all three pieces at once (a
+      generated OpenBao secret at `service/k8s-zot/<name>/<cred>`, a
+      Zot `accessControl` grant scoped to exactly the repository
+      path(s) and actions that consumer needs, and a bcrypt htpasswd
+      line merged in automatically by `zot-bootstrap`'s own PreSync
+      job — no Helm `lookup`, avoiding the mechanism that caused a real
+      outage in an earlier attempt). All 9 real consumers (previously
+      audited against their actual manifests/workflows, not assumed)
+      are registered.
+- [ ] Not yet done: every consumer's actual CI/in-cluster credential
+      still reads/pushes as the shared `ci` user today — the new
+      per-consumer credentials exist but nothing has been cut over to
+      them yet. Migrating each consumer one at a time, then retiring
+      the shared `ci` user's blanket scope, is tracked as Phase 2/3 of
+      `admin-openbao`'s secrets-standard-compliance plan.
 
 # TODO - I think I accidentially renamed a bunch of github repos by running the plan in admin-github
 
