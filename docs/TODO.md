@@ -487,7 +487,10 @@ Status as of 2026-09-09:
       (`admin-discord`/`admin-github`/`admin-openbao` currently share one
       bucket + one key). Not started.
 - [ ] **Phase 1c** — dedicated ServiceAccounts for the ~6 repos currently
-      sharing the `github-runner-workload` identity for CI. Not started.
+      sharing the `github-runner-workload` identity for CI. Not started;
+      **worth exploring GitHub Actions' native OIDC as an alternative
+      before building this the Kubernetes-RBAC way** — see the new TODO
+      section below.
 - [ ] **Phase 1d** — host+client-named Discord webhook paths for
       `ui-hdmi-switch`/`graph-hdmi-switch`. Not started.
 - [ ] **Phase 2** — migrate every consumer built in Phase 1 onto the new
@@ -503,6 +506,48 @@ Status as of 2026-09-09:
       `Application` pins `targetRevision: "*"` — the real running
       version (`v2.10.0`) is only known from checking the live cluster,
       not from anything in git.
+
+---
+
+# TODO: explore GitHub Actions OIDC as an alternative to Phase 1c
+
+Right now, every CI job authenticates to OpenBao via its Kubernetes-auth
+method — the pod presents its own ServiceAccount JWT (already sitting on
+disk, no extra step needed to obtain it), OpenBao validates it against
+the Kubernetes API's TokenReview endpoint, matches the bound SA+namespace
+to a role. The self-hosted runner pods for *every* repo's CI currently
+run as the same shared `github-runner-workload` SA — which is exactly
+why Phase 1c (above) exists: Kubernetes-auth roles bind to a SA+namespace,
+and getting real per-repo isolation the Kubernetes way means minting a
+dedicated ServiceAccount per repo (`k8s-ci-rbac`'s `jobServiceAccounts`
+mechanism).
+
+GitHub Actions can mint a short-lived OIDC token natively for any
+workflow (`permissions: id-token: write` + a fetch step) — self-hosted
+runners can do this too, not just GitHub-hosted ones, so this doesn't
+require giving up the self-hosted runner's in-cluster network access
+(which several things genuinely depend on: reaching OpenBao's
+cluster-internal address at all, `actions-helm`'s live dry-run checks
+against the Kubernetes API, arm64 builds pinned to Pi nodes). The token
+carries claims like `repository`/`workflow`/`ref` natively — an OpenBao
+JWT/OIDC auth role could scope by "this exact repo's CI" directly from
+those claims, with no dedicated Kubernetes ServiceAccount/Role/RoleBinding
+needed at all. Could plausibly replace Phase 1c's whole mechanism, not
+just simplify it.
+
+Real tradeoff, not free: every workflow needs the explicit
+`id-token: write` permission added, plus a step to actually fetch the
+token (a network call to GitHub, not just reading a file already on
+disk) — more per-workflow setup than Kubernetes auth's zero-config JWT.
+
+- [ ] Not started — just captured. Needs: confirming OpenBao's JWT/OIDC
+      auth method can validate against
+      `https://token.actions.githubusercontent.com`'s discovery
+      document/JWKS from inside the cluster (no special network access
+      needed for *validating* a token, unlike fetching one), designing
+      the claim-matching rules per role (repo + maybe branch/workflow),
+      and a real side-by-side comparison against just building Phase 1c
+      the Kubernetes-RBAC way before committing to either.
 
 ---
 
