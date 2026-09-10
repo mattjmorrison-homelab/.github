@@ -379,15 +379,175 @@ rotated at the new path before its app has been repointed to read from
 it — mitigated by moving through the migration promptly rather than
 leaving apps half-migrated indefinitely.
 
-- [x] `admin-openbao` built — `vault_policy` +
-      `vault_kubernetes_auth_backend_role` for every existing SecretStore
-      and bootstrap-script role (14 total, captured directly from every
-      repo's manifests), `vault_kv_secret_v2` scaffolding every individual
-      secret key (26 total) at its new one-path-per-key location via
-      write-only arguments. `tofu validate` clean; not applied yet —
-      needs the `vault_root_token` secret created in Woodpecker's own
-      Settings → Secrets before CI can run it, and the actual app-by-app
-      `ExternalSecret` migration to the new paths hasn't started.
+- [x] `admin-openbao` built, applied, and in active use — `vault_policy` +
+      `vault_kubernetes_auth_backend_role` for every real role (30+ now,
+      including every Terraform repo's own CI credential),
+      `vault_kv_secret_v2` scaffolding every individual secret key at its
+      one-path-per-key location via write-only arguments. State is
+      Garage-backed like every other Terraform repo; CI runs via GitHub
+      Actions, not Woodpecker (decommissioned).
+- [x] `admin-openbao/scripts/audit-openbao.sh` (runnable via a GitHub
+      Action) — lists every live KV path, Kubernetes-auth role's real
+      bindings, AppRole role, enabled auth method, ACL policy, and live
+      token with no matching role. The actual mechanism this
+      disaster-recovery goal depends on for verifying reality matches
+      `locals.tf`.
+
+Full history of what's shipped/left lives in the new section below —
+mid-migration, the scope grew from "policies/roles exist as code" to a
+much stricter standard ("every secret used by exactly one thing, no
+sharing of the secret/role/policy/identity"), discovered via this same
+audit tool surfacing real cross-repo credential sharing.
+
+---
+
+# TODO: OpenBao secrets/roles/policies — full standard-compliance redesign
+
+Expands on the "IaC for OpenBao's own policies/roles" TODO above: the
+live audit found more than naming drift — real structural sharing.
+Multiple unrelated repos reading from one wildcard-scoped path, several
+repos authenticating as the exact same Kubernetes ServiceAccount, every
+Zot registry consumer and every Terraform repo's CI sharing one literal
+credential. The standard: **every secret used by exactly one thing,
+named for both its host and client repo, a single `value` property,
+guarded by a role/policy scoped to exactly one repo — no sharing of the
+secret, the role, the policy, or the underlying auth identity.**
+
+Full plan (3 passes: create new → migrate every consumer → remove old)
+lives in this session's Claude Code plan file, not duplicated here.
+Status as of 2026-09-09:
+
+**Done:**
+- [x] Old-path grants dropped from every role that had them
+      (`admin-openbao#26`).
+- [x] 19 orphaned/dead OpenBao secrets fully destroyed, not just
+      soft-deleted (`admin-openbao#27`/`#28`).
+- [x] ArgoCD's 3-way shared grant narrowed to one exact key per role
+      (`admin-openbao#32`); `garage`'s role narrowed to its own secrets +
+      exactly the 2 tofu-state keys it needs (`#33`).
+- [x] 3 bootstrap scripts fixed that were writing to dead bare paths
+      instead of their real per-key location (`k8s-garage#5`,
+      `k8s-cloudflare` pre-cleanup, `admin-github#28`'s docs).
+- [x] **Zot per-consumer credentials** (Phase 1a): all 9 real registry
+      consumers have their own generated password + Zot user, scoped to
+      exactly the repository path(s) they need (`admin-openbao#34`/`#35`,
+      `k8s-zot#8`/`#9`). A real ExternalSecret/PreSync-hook-ordering race
+      that broke the PostSync verify check is fixed (`k8s-zot#10`, init
+      container forces a real refresh before the pod starts). Decided:
+      `ci`/`ci-readonly` (the old shared registry logins) get removed
+      outright once Phase 2 migrates the 9 consumers off `ci` — not
+      narrowed, not replaced.
+- [x] **`admin-cloudflare`** built (new repo, `cloudflare/cloudflare`
+      Terraform provider) — takes over DNS-record management from
+      `k8s-cloudflare`'s old ad hoc `curl`-based bootstrap-script loop.
+      Has its own dedicated Cloudflare API token (narrower scope than
+      `k8s-cloudflare`'s own — no Tunnel:Edit), not shared with
+      `cloudflare-bootstrap`. The orphaned `woodpecker.morrisons.site`
+      DNS record (dead since Woodpecker's decommission) is fully deleted
+      for real, not just tracked.
+- [x] A real CI gap found and fixed org-wide while stacking PRs during
+      the above: every Terraform repo's `apply` job only checked
+      `pull_request.merged`, never the PR's *base* branch — any merged
+      PR (including one stacked on a side branch) fired a real apply
+      against `main` regardless. Fixed in `admin-discord`, `admin-github`,
+      `admin-openbao`, `admin-cloudflare`, `pi-health`.
+- [x] A real CI limitation found and fixed in `actions-helm`: a Job's
+      `spec.template` is immutable once live, so `check.sh`'s
+      server-side dry-run always failed on any real change inside an
+      ArgoCD-hook Job (`zot-bootstrap`, `cloudflare-bootstrap`) —
+      regardless of correctness. Hook Jobs are now excluded from the
+      dry-run the same way `Namespace`/`Role`/etc. already were
+      (`actions-helm#4`); `k8s-cloudflare` and `k8s-zot` bumped to the
+      fixed SHA.
+- [x] `admin-openbao/scripts/audit-openbao.sh` found a live token still
+      carrying the decommissioned `woodpecker-pipelines` policy
+      (accessor `KjQDfslee6putDQW7lED3j4A`, expires 2026-09-12 on its
+      own if left alone) and 2 orphaned, non-Terraform-managed ACL
+      policies (`woodpecker-pipelines`, `certmanager`).
+
+**Not yet done:**
+- [ ] `k8s-cloudflare/manifests/scripts/bootstrap.sh` still has its own
+      `INGRESS_HOSTNAMES` DNS-record-creation loop — dead weight now
+      that `admin-cloudflare` owns this, needs removing along with the
+      `INGRESS_HOSTNAMES` env var in `bootstrap-job.yaml`.
+- [ ] A structural policy-overlap check (`admin-openbao`, uncommitted —
+      `for_each` over `local.secrets`, flags any real path readable by
+      more than one role) found 19 real overlaps in 4 categories:
+      the shared tofu-state credential (tracked below), the temporary
+      `garage-key-audit` role (delete it, its diagnostic purpose is
+      served), `k8s-cert-manager-config`'s `cloudflare` role
+      over-granted to `k8s-cloudflare`'s tunnel secrets it never touches
+      (narrow to just `cloudflare-api-token`), and `zot`'s role
+      over-granted the whole `service/k8s-zot/*` tree when it only ever
+      needs `k8s-zot/htpasswd` (only `zot-bootstrap` needs the
+      individual consumer passwords). Needs the narrowing PRs, then
+      `tofu test` wired into CI for real (was never actually gated —
+      fixed alongside this, `admin-openbao#38`) to keep it enforced.
+- [ ] **Phase 1b** — per-repo Garage buckets/keys for Terraform state
+      (`admin-discord`/`admin-github`/`admin-openbao` currently share one
+      bucket + one key). Not started.
+- [ ] **Phase 1c** — dedicated ServiceAccounts for the ~6 repos currently
+      sharing the `github-runner-workload` identity for CI. Not started;
+      **worth exploring GitHub Actions' native OIDC as an alternative
+      before building this the Kubernetes-RBAC way** — see the new TODO
+      section below.
+- [ ] **Phase 1d** — host+client-named Discord webhook paths for
+      `ui-hdmi-switch`/`graph-hdmi-switch`. Not started.
+- [ ] **Phase 2** — migrate every consumer built in Phase 1 onto the new
+      secrets/roles, one at a time. Not started (Zot's 9 consumers are
+      the first real candidates, now that Phase 1a is unblocked).
+- [ ] **Phase 3** — remove every old shared secret/role/policy, only
+      after Phase 2 confirms nothing still depends on it: `ci`/
+      `ci-readonly`, the shared tofu-state bucket/key/role, the
+      `woodpecker-pipelines` token + orphaned policies above, the
+      leftover Garage access key from the confirmed 1-key leak
+      (created 2026-08-20, never actively growing).
+- [ ] Separately noted, not yet fixed: `k8s-external-secrets`'s ArgoCD
+      `Application` pins `targetRevision: "*"` — the real running
+      version (`v2.10.0`) is only known from checking the live cluster,
+      not from anything in git.
+
+---
+
+# TODO: explore GitHub Actions OIDC as an alternative to Phase 1c
+
+Right now, every CI job authenticates to OpenBao via its Kubernetes-auth
+method — the pod presents its own ServiceAccount JWT (already sitting on
+disk, no extra step needed to obtain it), OpenBao validates it against
+the Kubernetes API's TokenReview endpoint, matches the bound SA+namespace
+to a role. The self-hosted runner pods for *every* repo's CI currently
+run as the same shared `github-runner-workload` SA — which is exactly
+why Phase 1c (above) exists: Kubernetes-auth roles bind to a SA+namespace,
+and getting real per-repo isolation the Kubernetes way means minting a
+dedicated ServiceAccount per repo (`k8s-ci-rbac`'s `jobServiceAccounts`
+mechanism).
+
+GitHub Actions can mint a short-lived OIDC token natively for any
+workflow (`permissions: id-token: write` + a fetch step) — self-hosted
+runners can do this too, not just GitHub-hosted ones, so this doesn't
+require giving up the self-hosted runner's in-cluster network access
+(which several things genuinely depend on: reaching OpenBao's
+cluster-internal address at all, `actions-helm`'s live dry-run checks
+against the Kubernetes API, arm64 builds pinned to Pi nodes). The token
+carries claims like `repository`/`workflow`/`ref` natively — an OpenBao
+JWT/OIDC auth role could scope by "this exact repo's CI" directly from
+those claims, with no dedicated Kubernetes ServiceAccount/Role/RoleBinding
+needed at all. Could plausibly replace Phase 1c's whole mechanism, not
+just simplify it.
+
+Real tradeoff, not free: every workflow needs the explicit
+`id-token: write` permission added, plus a step to actually fetch the
+token (a network call to GitHub, not just reading a file already on
+disk) — more per-workflow setup than Kubernetes auth's zero-config JWT.
+
+- [ ] Not started — just captured. Needs: confirming OpenBao's JWT/OIDC
+      auth method can validate against
+      `https://token.actions.githubusercontent.com`'s discovery
+      document/JWKS from inside the cluster (no special network access
+      needed for *validating* a token, unlike fetching one), designing
+      the claim-matching rules per role (repo + maybe branch/workflow),
+      and a real side-by-side comparison against just building Phase 1c
+      the Kubernetes-RBAC way before committing to either.
 
 ---
 
@@ -523,10 +683,12 @@ out of sync with each other.
       are registered.
 - [ ] Not yet done: every consumer's actual CI/in-cluster credential
       still reads/pushes as the shared `ci` user today — the new
-      per-consumer credentials exist but nothing has been cut over to
-      them yet. Migrating each consumer one at a time, then retiring
-      the shared `ci` user's blanket scope, is tracked as Phase 2/3 of
-      `admin-openbao`'s secrets-standard-compliance plan.
+      per-consumer credentials exist and are confirmed live (a real
+      ExternalSecret-refresh race that blocked verifying this is fixed),
+      but nothing has been cut over to them yet. Migrating each consumer
+      one at a time, then removing `ci`/`ci-readonly` outright, is
+      tracked as Phase 2/3 in the "OpenBao secrets/roles/policies" TODO
+      above.
 
 # TODO - I think I accidentially renamed a bunch of github repos by running the plan in admin-github
 
