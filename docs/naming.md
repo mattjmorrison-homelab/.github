@@ -77,6 +77,15 @@ that. The prefix should instead name the repo's *destination/kind*:
 - **`ui-`** — source code + CI for a frontend. Same relationship to a
   `k8s-` repo as `graph-` has — this is where the frontend source lives,
   not where it runs.
+- **`app-`** — source code + CI for a full-stack app that doesn't fit
+  `graph-`/`ui-`: not a federated-graph subgraph contributor, and its
+  frontend+backend aren't split into separate repos because the tool's
+  own scaffolding bundles them into one workspace. Same "source lives
+  here, gets built into an image, deployed by a `k8s-` repo" relationship
+  as `graph-`/`ui-`, just without the graph-specific or frontend-only
+  framing. First example: `app-backstage` (Backstage's own scaffolder
+  generates one Yarn workspace containing both `packages/app` and
+  `packages/backend`).
 - **`ai-`** — AI tooling configuration, not tied to any deployment
   destination at all. Example: `ai-claude` (was `homelab-claude`) — Claude
   Code's own global agents/skills/hooks config.
@@ -167,6 +176,10 @@ Not yet created, planned:
 
 - `graph-health`, `k8s-health`, and (if it gets a frontend) `ui-health` —
   the health-check subgraph service discussed today
+- `app-backstage`, `k8s-backstage` — Backstage dependency/relationship
+  catalog (todo #41), the first use of the new `app-` prefix above.
+  Registered in `admin-github`'s `local.repos` (PR #39); content not yet
+  built.
 
 `k8s-garage` — Garage, self-hosted S3-compatible object storage. Built
 for `admin-github`'s OpenTofu state bucket first (now live); a public
