@@ -28,12 +28,11 @@ the deploy fast if it doesn't come back healthy.
 ## Repositories
 
 Organized by what each repo actually is, per the `admin-`/`ai-`/`app-`/
-`graph-`/`k8s-`/`k8s-lib-`/`nix-`/`pi-`/`steamos-`/`ui-` naming scheme
-documented in this repo's own `docs/naming.md`.
+`graph-`/`k8s-`/`k8s-lib-`/`nix-`/`pi-`/`steamos-`/`ui-` naming scheme.
 
 ### Cluster
 
-- **[homelab](https://github.com/mattjmorrison-homelab/homelab)** — NixOS configuration and modules (e.g. `k3s-control-plane`) for the homelab's host machines, tested via NixOS VM integration tests. Still named `homelab`, not yet renamed to `nix-control-plane` under the current scheme.
+- **[homelab](https://github.com/mattjmorrison-homelab/homelab)** — NixOS configuration and modules (e.g. `k3s-control-plane`) for the homelab's host machines, tested via NixOS VM integration tests.
 - **[k8s-apps](https://github.com/mattjmorrison-homelab/k8s-apps)** — ArgoCD "app of apps" repo holding one `Application` manifest per deployed service so ArgoCD can sync everything automatically.
 - **[k8s-argocd](https://github.com/mattjmorrison-homelab/k8s-argocd)** — Bootstraps and upgrades ArgoCD itself into the k3s cluster as the tool that deploys everything else.
 - **[k8s-argocd-image-updater](https://github.com/mattjmorrison-homelab/k8s-argocd-image-updater)** — Argo CD Image Updater install that watches the HDMI-switch Application and bumps its image tag via parameter overrides, with no git commits.
@@ -41,7 +40,7 @@ documented in this repo's own `docs/naming.md`.
 ### Ingress/networking
 
 - **[k8s-traefik](https://github.com/mattjmorrison-homelab/k8s-traefik)** — `HelmChartConfig` overrides for k3s's built-in Traefik that redirect all plain HTTP traffic to HTTPS.
-- **[k8s-cloudflare](https://github.com/mattjmorrison-homelab/k8s-cloudflare)** — Runs `cloudflared` (Cloudflare Tunnel) for public ingress to the cluster; DNS records for the tunnel are now managed declaratively by `admin-cloudflare` instead of this repo's own bootstrap script.
+- **[k8s-cloudflare](https://github.com/mattjmorrison-homelab/k8s-cloudflare)** — Runs `cloudflared` (Cloudflare Tunnel) for public ingress to the cluster.
 - **[k8s-pihole](https://github.com/mattjmorrison-homelab/k8s-pihole)** — Pi-hole deployment providing DNS/ad-blocking and local DNS records for `*.morrisons.site` hostnames and a handful of `.local` LAN devices.
 - **[k8s-coredns](https://github.com/mattjmorrison-homelab/k8s-coredns)** — Custom CoreDNS config that forwards the `morrisons.site` zone to Pi-hole so pods resolve it the same way LAN clients do.
 
@@ -53,9 +52,9 @@ documented in this repo's own `docs/naming.md`.
 
 ### CI/CD
 
-- **[k8s-github-runner](https://github.com/mattjmorrison-homelab/k8s-github-runner)** — Self-hosted GitHub Actions runners for the org — plain per-architecture Deployments that register natively, not Actions Runner Controller (ARC's runner registration didn't work reliably in this cluster).
+- **[k8s-github-runner](https://github.com/mattjmorrison-homelab/k8s-github-runner)** — Self-hosted GitHub Actions runners for the org — plain per-architecture Deployments that register natively, not Actions Runner Controller.
 - **[k8s-zot](https://github.com/mattjmorrison-homelab/k8s-zot)** — Self-hosted OCI registry (`registry.morrisons.site`) for images and Helm charts built by CI, with a per-consumer-scoped credential for every publishing repo.
-- **[k8s-garage](https://github.com/mattjmorrison-homelab/k8s-garage)** — Self-hosted S3-compatible object storage (Garage), built first as the state backend for `admin-github`'s OpenTofu state; planned (not yet built) to also host `ui-hdmi-switch`'s static build from a public bucket.
+- **[k8s-garage](https://github.com/mattjmorrison-homelab/k8s-garage)** — Self-hosted S3-compatible object storage (Garage), used as the state backend for `admin-github`'s OpenTofu state.
 
 ### Shared CI (`actions-*`)
 
@@ -83,10 +82,7 @@ workflow files rather than run directly themselves.
 - **[k8s-cert-manager-config](https://github.com/mattjmorrison-homelab/k8s-cert-manager-config)** — cert-manager configuration: Let's Encrypt `ClusterIssuer`s via Cloudflare DNS-01 and the `*.morrisons.site` wildcard certificate.
 - **[k8s-cert-manager-crds](https://github.com/mattjmorrison-homelab/k8s-cert-manager-crds)** — cert-manager's CustomResourceDefinitions, applied with server-side apply since they're too large for a normal client-side apply.
 - **[k8s-ci-rbac](https://github.com/mattjmorrison-homelab/k8s-ci-rbac)** — Deploys the live ServiceAccount/Role/RoleBinding each consumer's CI dry-run check actually authenticates as, independently of any consumer's own chart, so a consumer's first PR isn't blocked on RBAC that PR's own unmerged chart would otherwise have to create.
-- **[k8s-lib-ci-rbac](https://github.com/mattjmorrison-homelab/k8s-lib-ci-rbac)** — A Helm *library* chart (`type: library`) that generates that same per-namespace CI RBAC as a template other charts pull in via their own `dependencies:` block, rather than deploying it as a standalone Application. See note below — this is not simply the renamed form of `k8s-ci-rbac`; both repos exist today with distinct purposes.
-- **[k8s-host-rbac](https://github.com/mattjmorrison-homelab/k8s-host-rbac)** — Planned, not yet built: a ServiceAccount + ClusterRoleBinding and a long-lived token Secret giving the NixOS control-plane host its own read-only kubeconfig.
-
-> **Note:** `docs/naming.md`'s rename-mapping table currently records `k8s-ci-rbac` → `k8s-lib-ci-rbac` as a completed rename. In reality both repos exist independently today, with different purposes (listed separately above) — a known documentation inconsistency, not resolved as part of this update.
+- **[k8s-lib-ci-rbac](https://github.com/mattjmorrison-homelab/k8s-lib-ci-rbac)** — A Helm *library* chart (`type: library`) that generates that same per-namespace CI RBAC as a template other charts pull in via their own `dependencies:` block, rather than deploying it as a standalone Application.
 
 ### Apps & services
 
@@ -98,11 +94,9 @@ workflow files rather than run directly themselves.
 - **[graph-hdmi-switch](https://github.com/mattjmorrison-homelab/graph-hdmi-switch)** — Python/Flask + GraphQL app source, tests, and CI pipeline for controlling a TESMart HDMI switch over serial.
 - **[k8s-hdmi-switch](https://github.com/mattjmorrison-homelab/k8s-hdmi-switch)** — Helm chart and manifests deploying `graph-hdmi-switch`'s built image; image bumps land here via Argo CD Image Updater, with no git commits.
 - **[ui-hdmi-switch](https://github.com/mattjmorrison-homelab/ui-hdmi-switch)** — React/TypeScript PWA remote control for the HDMI switch (install-to-home-screen), talking to its GraphQL API with deliberately no offline caching of switch state.
-- **[app-backstage](https://github.com/mattjmorrison-homelab/app-backstage)** — Backstage app source (Yarn workspace, scaffolded `packages/app` + `packages/backend`) — the dependency/relationship catalog being built for this homelab.
+- **[app-backstage](https://github.com/mattjmorrison-homelab/app-backstage)** — Backstage app source (Yarn workspace, scaffolded `packages/app` + `packages/backend`) for this homelab's service catalog.
 - **[docker-backstage](https://github.com/mattjmorrison-homelab/docker-backstage)** — Shared dependency base image (`prod`/`test` targets) that `app-backstage`'s build and CI run on top of, instead of repeating a ~750MB, 1700+-package `yarn install` on every PR.
-- **[k8s-backstage](https://github.com/mattjmorrison-homelab/k8s-backstage)** — Helm chart deploying Backstage: namespace, Deployment/Service, a hand-rolled Postgres StatefulSet, OpenBao-backed ExternalSecrets, and Ingress. Bare-app pass only so far — no catalog discovery, CI validation, or plugins yet.
-- **[graph-health](https://github.com/mattjmorrison-homelab/graph-health)** — Planned health-check GraphQL subgraph; still empty scaffolding.
-- **[k8s-health](https://github.com/mattjmorrison-homelab/k8s-health)** — Planned cluster health-check deployment; still empty scaffolding.
+- **[k8s-backstage](https://github.com/mattjmorrison-homelab/k8s-backstage)** — Helm chart deploying Backstage: namespace, Deployment/Service, a hand-rolled Postgres StatefulSet, OpenBao-backed ExternalSecrets, and Ingress.
 
 ### Admin / IaC
 
@@ -112,7 +106,7 @@ a machine.
 
 - **[admin-github](https://github.com/mattjmorrison-homelab/admin-github)** — OpenTofu config managing the `mattjmorrison-homelab` GitHub org itself (every repo, branch protection on `main`) via the `integrations/github` provider.
 - **[admin-openbao](https://github.com/mattjmorrison-homelab/admin-openbao)** — OpenTofu config managing OpenBao's own policies, Kubernetes auth roles, and KV secret paths, so its whole access-control layer can be rebuilt from code if OpenBao's data is ever lost.
-- **[admin-cloudflare](https://github.com/mattjmorrison-homelab/admin-cloudflare)** — Terraform config managing the homelab's Cloudflare zone and DNS records declaratively, replacing the old ad hoc `curl`-based record creation that used to live in `k8s-cloudflare`'s bootstrap script.
+- **[admin-cloudflare](https://github.com/mattjmorrison-homelab/admin-cloudflare)** — Terraform config managing the homelab's Cloudflare zone and DNS records declaratively.
 - **[admin-discord](https://github.com/mattjmorrison-homelab/admin-discord)** — Terraform config managing the homelab's Discord channels and webhooks, so each webhook's purpose/channel is recorded declaratively instead of tracked by memory.
 - **[admin-network](https://github.com/mattjmorrison-homelab/admin-network)** — Shared network config (LAN hostname→IP map, ingress hostnames) consumed as an extra Helm values source by `k8s-pihole` and `k8s-coredns`; not a deployed workload of its own.
 
